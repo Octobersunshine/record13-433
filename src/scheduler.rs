@@ -192,6 +192,43 @@ impl AppState {
         tasks.get(&task_id).cloned()
     }
 
+    pub async fn execute_task_now(&self, task_id: Uuid) -> AppResult<ScheduleTask> {
+        let task = self
+            .get_task(task_id)
+            .await
+            .ok_or_else(|| AppError::TaskNotFound(task_id.to_string()))?;
+
+        if task.is_executed {
+            return Err(AppError::TaskAlreadyExecuted(format!(
+                "Task {} has already been executed and cannot be triggered again",
+                task_id
+            )));
+        }
+
+        if let Some(job_id) = self.job_ids.lock().await.remove(&task_id) {
+            if let Err(e) = self.scheduler.remove(&job_id).await {
+                error!(
+                    "Failed to remove scheduled job {} for task {}: {}",
+                    job_id, task_id, e
+                );
+            } else {
+                info!(
+                    "Removed scheduled job {} for manually triggered task {}",
+                    job_id, task_id
+                );
+            }
+        }
+
+        execute_task(self, task_id).await?;
+
+        let updated_task = self
+            .get_task(task_id)
+            .await
+            .ok_or_else(|| AppError::TaskNotFound(task_id.to_string()))?;
+
+        Ok(updated_task)
+    }
+
     pub async fn list_products(&self) -> Vec<Product> {
         let products = self.products.lock().await;
         products.values().cloned().collect()

@@ -9,6 +9,7 @@ pub fn create_routes(state: AppState) -> Router {
         .route("/api/schedules", routing::post(create_schedule))
         .route("/api/schedules", routing::get(list_tasks))
         .route("/api/schedules/:task_id", routing::get(get_task))
+        .route("/api/schedules/:task_id/trigger", routing::post(trigger_task))
         .route("/api/products", routing::get(list_products))
         .with_state(state)
 }

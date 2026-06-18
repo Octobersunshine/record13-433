@@ -20,6 +20,9 @@ pub enum AppError {
     #[error("Scheduler error: {0}")]
     SchedulerError(String),
 
+    #[error("Task already executed: {0}")]
+    TaskAlreadyExecuted(String),
+
     #[error("Internal server error: {0}")]
     Internal(String),
 }
@@ -36,6 +39,7 @@ impl IntoResponse for AppError {
             AppError::InvalidScheduleTime(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             AppError::ProductNotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
             AppError::TaskNotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
+            AppError::TaskAlreadyExecuted(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             AppError::SchedulerError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
             AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
         };

@@ -47,3 +47,12 @@ pub struct CreateScheduleResponse {
 pub struct TaskListResponse {
     pub tasks: Vec<ScheduleTask>,
 }
+
+#[derive(Debug, Serialize)]
+pub struct TriggerTaskResponse {
+    pub task_id: Uuid,
+    pub product_id: Uuid,
+    pub schedule_type: ScheduleType,
+    pub executed: bool,
+    pub message: String,
+}
