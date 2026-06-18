@@ -86,6 +86,16 @@ impl AppState {
         }
         drop(products);
 
+        let cancelled = self
+            .cancel_pending_tasks(product_id, schedule_type)
+            .await?;
+        if cancelled > 0 {
+            info!(
+                "Replaced {} existing pending {:?} task(s) for product {}",
+                cancelled, schedule_type, product_id
+            );
+        }
+
         let task_id = Uuid::new_v4();
         let now = Utc::now();
 
@@ -128,6 +138,48 @@ impl AppState {
         job_ids.insert(task_id, job_id);
 
         Ok(task)
+    }
+
+    async fn cancel_pending_tasks(
+        &self,
+        product_id: Uuid,
+        schedule_type: ScheduleType,
+    ) -> AppResult<usize> {
+        let to_cancel: Vec<Uuid> = {
+            let tasks = self.tasks.lock().await;
+            tasks
+                .values()
+                .filter(|t| {
+                    t.product_id == product_id
+                        && t.schedule_type == schedule_type
+                        && !t.is_executed
+                })
+                .map(|t| t.id)
+                .collect()
+        };
+
+        if to_cancel.is_empty() {
+            return Ok(0);
+        }
+
+        let count = to_cancel.len();
+        for task_id in &to_cancel {
+            if let Some(job_id) = self.job_ids.lock().await.remove(task_id) {
+                if let Err(e) = self.scheduler.remove(&job_id).await {
+                    error!(
+                        "Failed to remove scheduled job {} for task {}: {}",
+                        job_id, task_id, e
+                    );
+                }
+            }
+            self.tasks.lock().await.remove(task_id);
+            info!(
+                "Cancelled pending {:?} task {} for product {}",
+                schedule_type, task_id, product_id
+            );
+        }
+
+        Ok(count)
     }
 
     pub async fn list_tasks(&self) -> Vec<ScheduleTask> {
